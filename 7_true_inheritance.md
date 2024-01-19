@@ -68,3 +68,50 @@ class SyslogHandler(Handler):
     def get_visit(self, visitor):
         visitor.emit_syslog_handler()
 ```
+
+Вообще можно было бы применить перегрузку по типу входного аргумента:
+
+```
+class Visitor:
+    def emit(FileHandler h): ...
+    def emit(SyslogHandler h): ...
+```
+
+Но python такое делать не позволяет.
+
+# Если слона негде спрятать
+
+Спустя все эти действия, методы класса Handler все равно переопределяются в наследниках, а это не соответствует заданию. Чтобы удовлетворить условию задания, сделаем следующие действия:
+
+1) Во всех наследниках класса Handler будет один и тот же метод `visitor.visit()`.
+2) Внутри класса Visitor можно было бы воспользоваться перегрузкой по параметру, но в python этого нет, поэтому воспользуемся цепочкой if'ов:
+
+``` python
+class Visitor:
+    def emit_file_handler(record): ...
+    def emit_syslog_handler(record): ...
+
+    def visit(self, handler, record):
+        if type(handler) is OSSysLogHandler:
+            emit_syslog_handler(record)
+            ...
+        else if type(handler) is FileHandler:
+            emit_file_handler(record)
+            ...
+```
+
+А если заменить цепочку if-else'ов на сопоставление типа с подобие паттерн-мэтчинга, то получится даже чуть более красиво:
+
+``` python
+class Visitor:
+    # методы
+
+    emit_method = {
+        OSSysLogHandler: emit_syslog_handler,
+        FileHandler: emit_file_handler
+    }
+
+    def visit(self, handler, record):
+        emit_method.get(type(handler))(record)
+
+```
